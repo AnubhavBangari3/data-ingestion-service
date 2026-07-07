@@ -61,3 +61,21 @@ class EventSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("payload must be a JSON object.")
 
         return value
+    
+class BulkEventSerializer(serializers.Serializer):
+    events = EventSerializer(many=True)
+
+    MAX_EVENTS = 5000
+
+    def validate_events(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "At least one event is required."
+            )
+
+        if len(value) > self.MAX_EVENTS:
+            raise serializers.ValidationError(
+                f"Maximum {self.MAX_EVENTS} events are allowed per request."
+            )
+
+        return value
