@@ -69,3 +69,15 @@ class EventAggregate(models.Model):
             f"{self.tenant_id} | {self.bucket_size} | "
             f"{self.bucket_start} | {self.count}"
         )
+    
+class AggregationCheckpoint(models.Model):
+    bucket_size = models.CharField(
+        max_length=10,
+        choices=EventAggregate.BUCKET_SIZE_CHOICES,
+        unique=True,
+    )
+    last_processed_until = models.DateTimeField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.bucket_size} processed until {self.last_processed_until}"
