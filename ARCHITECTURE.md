@@ -4,7 +4,7 @@
 
 ## Overview
 
-This project implements a production-oriented **Data Ingestion and Aggregation Service** using **Django REST Framework** and **PostgreSQL**. The architecture focuses on correctness, idempotency, concurrency safety, scalability, and maintainability while satisfying the requirements of the Python Backend Engineering Assessment. :contentReference[oaicite:0]{index=0} :contentReference[oaicite:1]{index=1}
+This project implements a production-oriented **Data Ingestion and Aggregation Service** using **Django REST Framework** and **PostgreSQL**. The architecture focuses on correctness, idempotency, concurrency safety, scalability, and maintainability while satisfying the requirements of the Python Backend Engineering Assessment. 
 
 The system accepts incoming events through REST APIs, validates them, stores them safely in PostgreSQL, periodically aggregates them into minute and hour buckets, and exposes APIs for querying both raw events and aggregated metrics.
 
