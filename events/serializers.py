@@ -54,7 +54,7 @@ class EventSerializer(serializers.ModelSerializer):
         if timezone.is_naive(value):
             raise serializers.ValidationError("timestamp must include timezone information.")
 
-        return value.astimezone(timezone.utc)
+        return value.astimezone(timezone.UTC)
 
     def validate_payload(self, value):
         if not isinstance(value, dict):

@@ -1,8 +1,7 @@
 from django.urls import path
 
+from .views import EventIngestionView
+
 urlpatterns = [
-    # POST /events
-    # POST /events/bulk
-    # GET /events
-    # GET /metrics
+    path("events", EventIngestionView.as_view(), name="event-ingestion"),
 ]
