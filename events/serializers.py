@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from .models import Event, EventAggregate
-
+import json
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
@@ -58,7 +58,18 @@ class EventSerializer(serializers.ModelSerializer):
 
     def validate_payload(self, value):
         if not isinstance(value, dict):
-            raise serializers.ValidationError("payload must be a JSON object.")
+            raise serializers.ValidationError(
+                "payload must be a JSON object."
+            )
+
+        MAX_PAYLOAD_SIZE = 64 * 1024  # 64 KB
+
+        payload_size = len(json.dumps(value))
+
+        if payload_size > MAX_PAYLOAD_SIZE:
+            raise serializers.ValidationError(
+                "payload exceeds the maximum allowed size of 64 KB."
+            )
 
         return value
     
