@@ -59,29 +59,9 @@ class EventAggregate(models.Model):
             )
         ]
         indexes = [
-            models.Index(
-                fields=[
-                    "tenant_id",
-                    "bucket_size",
-                    "bucket_start",
-                ]
-            ),
-            models.Index(
-                fields=[
-                    "tenant_id",
-                    "bucket_size",
-                    "source",
-                    "bucket_start",
-                ]
-            ),
-            models.Index(
-                fields=[
-                    "tenant_id",
-                    "bucket_size",
-                    "event_type",
-                    "bucket_start",
-                ]
-            ),
+            models.Index(fields=["tenant_id", "bucket_size", "bucket_start"]),
+            models.Index(fields=["tenant_id", "bucket_size", "source", "bucket_start"]),
+            models.Index(fields=["tenant_id", "bucket_size", "event_type", "bucket_start"]),
         ]
 
     def __str__(self):
