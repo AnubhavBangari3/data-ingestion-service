@@ -6,13 +6,17 @@ from rest_framework.views import APIView
 from .serializers import (
     EventSerializer,
     BulkEventSerializer,
+    EventAggregateSerializer,
 )
+
+from .selectors import get_events, get_metrics
+
+
 from .services import (
     ingest_event,
     bulk_ingest_events,
 )
-from .selectors import get_events
-from .filters import EventQuerySerializer
+from .filters import EventQuerySerializer, MetricsQuerySerializer
 from .pagination import EventPagination
 
 
@@ -92,3 +96,33 @@ class BulkEventIngestionView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+    
+class MetricsView(GenericAPIView):
+    """
+    GET /metrics
+    """
+
+    serializer_class = EventAggregateSerializer
+    pagination_class = EventPagination
+
+    def get(self, request):
+        query = MetricsQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+
+        queryset = get_metrics(
+            tenant_id=query.validated_data["tenant_id"],
+            bucket_size=query.validated_data["bucket_size"],
+            source=query.validated_data.get("source"),
+            event_type=query.validated_data.get("event_type"),
+            from_time=query.validated_data.get("from"),
+            to_time=query.validated_data.get("to"),
+        )
+
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)

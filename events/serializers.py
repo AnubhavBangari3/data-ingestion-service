@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 
-from .models import Event
+from .models import Event, EventAggregate
 
 
 class EventSerializer(serializers.ModelSerializer):
@@ -79,3 +79,17 @@ class BulkEventSerializer(serializers.Serializer):
             )
 
         return value
+    
+class EventAggregateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventAggregate
+        fields = [
+            "tenant_id",
+            "bucket_start",
+            "bucket_size",
+            "source",
+            "event_type",
+            "count",
+            "first_seen",
+            "last_seen",
+        ]
