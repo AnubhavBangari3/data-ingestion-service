@@ -1,10 +1,18 @@
+import json
+
+from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 from django.utils import timezone
 
 from .models import Event, EventAggregate
-import json
+
+
+MAX_PAYLOAD_SIZE_BYTES = 64 * 1024
+
 
 class EventSerializer(serializers.ModelSerializer):
+    event_id = serializers.CharField(max_length=255, validators=[])
+
     class Meta:
         model = Event
         fields = [
@@ -20,59 +28,68 @@ class EventSerializer(serializers.ModelSerializer):
 
     def validate_event_id(self, value):
         value = value.strip()
-
         if not value:
             raise serializers.ValidationError("event_id cannot be empty.")
-
         return value
 
     def validate_tenant_id(self, value):
         value = value.strip()
-
         if not value:
             raise serializers.ValidationError("tenant_id cannot be empty.")
-
         return value
 
     def validate_source(self, value):
         value = value.strip().lower()
-
         if not value:
             raise serializers.ValidationError("source cannot be empty.")
-
         return value
 
     def validate_event_type(self, value):
         value = value.strip().lower()
-
         if not value:
             raise serializers.ValidationError("event_type cannot be empty.")
-
         return value
+
+    def validate(self, attrs):
+        raw_timestamp = getattr(self, "initial_data", {}).get("timestamp")
+
+        if isinstance(raw_timestamp, str):
+            parsed = parse_datetime(raw_timestamp)
+
+            if parsed is None:
+                raise serializers.ValidationError({
+                    "timestamp": "Invalid timestamp format."
+                })
+
+            if timezone.is_naive(parsed):
+                raise serializers.ValidationError({
+                    "timestamp": "timestamp must include timezone information."
+                })
+
+        return attrs
 
     def validate_timestamp(self, value):
         if timezone.is_naive(value):
-            raise serializers.ValidationError("timestamp must include timezone information.")
+            raise serializers.ValidationError(
+                "timestamp must include timezone information."
+            )
 
         return value.astimezone(timezone.UTC)
 
     def validate_payload(self, value):
         if not isinstance(value, dict):
+            raise serializers.ValidationError("payload must be a JSON object.")
+
+        payload_size = len(json.dumps(value).encode("utf-8"))
+
+        if payload_size > MAX_PAYLOAD_SIZE_BYTES:
             raise serializers.ValidationError(
-                "payload must be a JSON object."
-            )
-
-        MAX_PAYLOAD_SIZE = 64 * 1024  # 64 KB
-
-        payload_size = len(json.dumps(value))
-
-        if payload_size > MAX_PAYLOAD_SIZE:
-            raise serializers.ValidationError(
-                "payload exceeds the maximum allowed size of 64 KB."
+                "payload size exceeds 64KB limit."
             )
 
         return value
-    
+
+
 class BulkEventSerializer(serializers.Serializer):
     events = EventSerializer(many=True)
 
@@ -90,7 +107,8 @@ class BulkEventSerializer(serializers.Serializer):
             )
 
         return value
-    
+
+
 class EventAggregateSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventAggregate

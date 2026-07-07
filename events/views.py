@@ -62,8 +62,8 @@ class EventIngestionView(GenericAPIView):
             tenant_id=query.validated_data["tenant_id"],
             source=query.validated_data.get("source"),
             event_type=query.validated_data.get("event_type"),
-            from_time=query.validated_data.get("from"),
-            to_time=query.validated_data.get("to"),
+            from_time=query.validated_data.get("from_time"),
+            to_time=query.validated_data.get("to_time"),
         )
 
         page = self.paginate_queryset(queryset)
@@ -114,8 +114,8 @@ class MetricsView(GenericAPIView):
             bucket_size=query.validated_data["bucket_size"],
             source=query.validated_data.get("source"),
             event_type=query.validated_data.get("event_type"),
-            from_time=query.validated_data.get("from"),
-            to_time=query.validated_data.get("to"),
+            from_time=query.validated_data.get("from_time"),
+            to_time=query.validated_data.get("to_time"),
         )
 
         page = self.paginate_queryset(queryset)
