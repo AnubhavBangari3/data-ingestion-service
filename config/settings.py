@@ -126,7 +126,7 @@ CELERY_RESULT_BACKEND = os.getenv(
 )
 
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_TASK_TIME_LIMIT = 30 * 60#30 minutes
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

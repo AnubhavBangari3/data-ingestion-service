@@ -7,7 +7,7 @@ from django.utils import timezone
 from .models import Event, EventAggregate
 
 
-MAX_PAYLOAD_SIZE_BYTES = 64 * 1024
+MAX_PAYLOAD_SIZE_BYTES = 64 * 1024 #64 KB
 
 
 class EventSerializer(serializers.ModelSerializer):
@@ -50,6 +50,7 @@ class EventSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("event_type cannot be empty.")
         return value
 
+    #object-level validator.
     def validate(self, attrs):
         raw_timestamp = getattr(self, "initial_data", {}).get("timestamp")
 
@@ -92,7 +93,7 @@ class EventSerializer(serializers.ModelSerializer):
 
 class BulkEventSerializer(serializers.Serializer):
     events = EventSerializer(many=True)
-
+    ## Maximum events allowed in a single bulk request.
     MAX_EVENTS = 5000
 
     def validate_events(self, value):

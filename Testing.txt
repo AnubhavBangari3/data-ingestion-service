@@ -1,0 +1,133 @@
+1) http://127.0.0.1:8000/health/
+2) http://127.0.0.1:8000/ready/
+3) http://127.0.0.1:8000/api/events/
+
+{
+  "event_id": "evt_9f4c7d2a_001",
+  "tenant_id": "tenant_alpha_01",
+  "source": "web",
+  "event_type": "signup",
+  "timestamp": "2026-07-09T16:45:30Z",
+  "payload": {
+    "user_id": "user_10293",
+    "plan": "premium",
+    "country": "India",
+    "browser": "Firefox",
+    "campaign": "summer_launch"
+  }
+}
+
+4) http://127.0.0.1:8000/api/events/
+
+{
+  "event_id": "evt_9f4c7d2a_001",
+  "tenant_id": "tenant_alpha_01",
+  "source": "web",
+  "event_type": "signup",
+  "timestamp": "2026-07-09T16:45:30Z",
+  "payload": {
+    "user_id": "user_10293",
+    "plan": "premium",
+    "country": "India",
+    "browser": "Firefox",
+    "campaign": "summer_launch"
+  }
+}
+
+5)  http://127.0.0.1:8000/api/events/
+{
+  "event_id": "",
+  "tenant_id": "tenant_alpha_01",
+  "source": "web",
+  "event_type": "signup",
+  "timestamp": "2026-07-09T16:45:30Z",
+  "payload": {
+    "user_id": "user_10293",
+    "plan": "premium",
+    "country": "India",
+    "browser": "Firefox",
+    "campaign": "summer_launch"
+  }
+}
+
+6)  http://127.0.0.1:8000/api/events/
+{
+  "event_id": "evt_9f4c7d2a_006",
+  "tenant_id": "tenant_alpha_01",
+  "source": "web",
+  "event_type": "click",
+  "timestamp": "2026-07-09T16:45:30",
+  "payload": {
+    "page": "home",
+    "button": "signup"
+  }
+}
+
+7)  http://127.0.0.1:8000/api/events/
+{
+  "event_id": "evt_9f4c7d2a_007",
+  "tenant_id": "tenant_alpha_01",
+  "source": "mobile",
+  "event_type": "login",
+  "timestamp": "2026-07-09T16:50:00Z",
+  "payload": "wrong"
+}
+
+8) http://127.0.0.1:8000/api/events/bulk/
+
+{
+  "events": [
+    {
+      "event_id": "evt_bulk_001",
+      "tenant_id": "tenant_alpha_01",
+      "source": "web",
+      "event_type": "click",
+      "timestamp": "2026-07-09T10:00:00Z",
+      "payload": {
+        "page": "home",
+        "button": "signup"
+      }
+    },
+    {
+      "event_id": "evt_bulk_002",
+      "tenant_id": "tenant_alpha_01",
+      "source": "mobile",
+      "event_type": "view",
+      "timestamp": "2026-07-09T10:01:15Z",
+      "payload": {
+        "screen": "dashboard",
+        "device": "android"
+      }
+    },
+    {
+      "event_id": "evt_bulk_003",
+      "tenant_id": "tenant_beta_02",
+      "source": "api",
+      "event_type": "purchase",
+      "timestamp": "2026-07-09T10:03:45Z",
+      "payload": {
+        "order_id": "ORD-10045",
+        "amount": 1299.99,
+        "currency": "INR"
+      }
+    }
+  ]
+}
+9) http://127.0.0.1:8000/api/events/bulk/
+10) http://127.0.0.1:8000/api/events/bulk/
+11) http://127.0.0.1:8000/api/events/bulk/
+Used generate_bulk_events.py to generate bulk_5001_events.json
+
+12)http://127.0.0.1:8000/api/events/
+13) http://127.0.0.1:8000/api/events/?tenant_id=tenant-1
+14) http://127.0.0.1:8000/api/events/?tenant_id=tenant-1&source=web
+15) http://127.0.0.1:8000/api/events/?tenant_id=tenant-1&event_type=click
+16) http://127.0.0.1:8000/api/events/?tenant_id=tenant-1&from=2026-07-09T12:00:00Z&to=2026-07-09T12:02:00Z
+17) http://127.0.0.1:8000/api/events/?tenant_id=tenant-1&page=1
+18) python manage.py aggregate_events
+19) http://127.0.0.1:8000/api/metrics/?tenant_id=tenant-1&bucket_size=minute
+20) http://127.0.0.1:8000/api/metrics/?tenant_id=tenant-1&bucket_size=hour
+21) http://127.0.0.1:8000/api/metrics/?tenant_id=tenant-1&bucket_size=minute&source=web
+22) http://127.0.0.1:8000/api/metrics/?tenant_id=tenant-1&bucket_size=minute&event_type=click
+23) http://127.0.0.1:8000/api/metrics/?tenant_id=tenant-1&bucket_size=day
+24) 

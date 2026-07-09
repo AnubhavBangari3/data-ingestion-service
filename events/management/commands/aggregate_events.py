@@ -19,9 +19,10 @@ class Command(BaseCommand):
         )
 
     def aggregate(self, bucket_size):
-        processing_until = timezone.now()
-
+        processing_until = timezone.now()# Process events only up to the current time
+        # Execute aggregation as a single transaction
         with transaction.atomic():
+            # Lock checkpoint row to prevent concurrent aggregation
             checkpoint, _ = (
                 AggregationCheckpoint.objects
                 .select_for_update()
@@ -34,12 +35,12 @@ class Command(BaseCommand):
                     },
                 )
             )
-
+            # Fetch only events that have not been processed yet
             queryset = Event.objects.filter(
                 timestamp__gt=checkpoint.last_processed_until,
                 timestamp__lte=processing_until,
             )
-
+            # Group events into minute or hour bucket
             if bucket_size == EventAggregate.BUCKET_MINUTE:
                 queryset = queryset.annotate(
                     bucket_start=TruncMinute("timestamp")
@@ -48,7 +49,7 @@ class Command(BaseCommand):
                 queryset = queryset.annotate(
                     bucket_start=TruncHour("timestamp")
                 )
-
+            # Aggregate events by tenant, bucket, source and event type
             grouped_rows = (
                 queryset
                 .values(
@@ -66,6 +67,8 @@ class Command(BaseCommand):
             )
 
             for row in grouped_rows:
+                # Create a new aggregate if one doesn't exist
+
                 aggregate, created = EventAggregate.objects.get_or_create(
                     tenant_id=row["tenant_id"],
                     bucket_start=row["bucket_start"],
@@ -79,6 +82,7 @@ class Command(BaseCommand):
                     },
                 )
 
+                # Update existing aggregate if already present
                 if not created:
                     aggregate.count = F("count") + row["count"]
                     aggregate.first_seen = min(

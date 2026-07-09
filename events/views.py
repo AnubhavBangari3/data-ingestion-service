@@ -88,6 +88,7 @@ class BulkEventIngestionView(APIView):
         result = bulk_ingest_events(
             serializer.validated_data["events"]
         )
+        # Trigger background aggregation using Celery
         aggregate_events_task.delay()
         return Response(
             {

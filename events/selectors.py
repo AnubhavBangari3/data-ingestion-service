@@ -8,6 +8,8 @@ def get_events(
     from_time=None,
     to_time=None,
 ):
+    # Fetch events for the specified tenant
+    # Retrieve only required columns to reduce database load
     queryset = (
         Event.objects
         .filter(tenant_id=tenant_id)
@@ -34,7 +36,7 @@ def get_events(
 
     if to_time:
         queryset = queryset.filter(timestamp__lte=to_time)
-
+    # Return events ordered chronologically
     return queryset.order_by("timestamp", "id")
 
 
@@ -76,5 +78,5 @@ def get_metrics(
 
     if to_time:
         queryset = queryset.filter(bucket_start__lte=to_time)
-
+    # Return metrics ordered by bucket start time
     return queryset.order_by("bucket_start", "id")

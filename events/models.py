@@ -12,6 +12,7 @@ class Event(models.Model):
 
     class Meta:
         ordering = ["timestamp", "id"]
+        # composite indexes 
         indexes = [
             models.Index(fields=["tenant_id", "timestamp", "id"]),
             models.Index(fields=["tenant_id", "source", "timestamp"]),
@@ -46,6 +47,7 @@ class EventAggregate(models.Model):
 
     class Meta:
         ordering = ["bucket_start", "id"]
+        #This enforces that there can only be one aggregate row per unique combination
         constraints = [
             models.UniqueConstraint(
                 fields=[
@@ -58,6 +60,7 @@ class EventAggregate(models.Model):
                 name="unique_event_aggregate_bucket",
             )
         ]
+        # composite indexes
         indexes = [
             models.Index(fields=["tenant_id", "bucket_size", "bucket_start"]),
             models.Index(fields=["tenant_id", "bucket_size", "source", "bucket_start"]),
