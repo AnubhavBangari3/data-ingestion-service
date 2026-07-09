@@ -13,34 +13,46 @@ The system accepts incoming events through REST APIs, validates them, stores the
 # High-Level Architecture
 
 ```
-                Client
-                   │
-        ┌──────────┴──────────┐
-        │                     │
- POST /api/events     POST /api/events/bulk
-        │                     │
-        └──────────┬──────────┘
-                   │
-          Validation Layer
-         (DRF Serializers)
-                   │
-            Service Layer
-      (Business Logic)
-                   │
-        PostgreSQL (Events)
-                   │
-      aggregate_events Command
-         (Background Worker)
-                   │
-      Incremental Aggregation
-                   │
- PostgreSQL (EventAggregate)
-                   │
-      GET /api/events
-      GET /api/metrics
+                         Client
+                            │
+        ┌───────────────────┴───────────────────┐
+        │                                       │
+POST /api/events                    POST /api/events/bulk
+        │                                       │
+        └───────────────────┬───────────────────┘
+                            │
+                    Validation Layer
+                    (DRF Serializers)
+                            │
+                     Service Layer
+                   (Business Logic)
+                            │
+                            ▼
+                PostgreSQL Event Table
+                            │
+          ┌─────────────────┴─────────────────┐
+          │                                   │
+Manual CLI Command                 Async Celery Task
+aggregate_events            aggregate_events_task.delay()
+          │                                   │
+          │                          Redis Message Broker
+          │                                   │
+          │                           Celery Worker
+          │                                   │
+          └─────────────────┬─────────────────┘
+                            │
+                            ▼
+           Database-level GROUP BY Aggregation
+                            │
+                            ▼
+           PostgreSQL EventAggregate Table
+                            │
+             ┌──────────────┴──────────────┐
+             │                             │
+       GET /api/events              GET /api/metrics
 ```
 
-The application follows a layered architecture that separates validation, business logic, database queries, and background processing. This separation keeps the code modular and easier to maintain.
+The application follows a layered architecture that separates request validation, business logic, database access, and background processing. Event ingestion is handled synchronously for immediate persistence, while aggregation can be executed either manually through a Django management command or asynchronously through Celery workers using Redis as the message broker. This separation keeps the application modular, maintainable, and scalable.
 
 ---
 
@@ -171,25 +183,39 @@ This approach remains safe even under concurrent requests.
 
 # Aggregation Strategy
 
-Aggregation is implemented as a Django Management Command.
+The application supports two mechanisms for event aggregation.
 
-```
+## 1. Django Management Command
+
+```bash
 python manage.py aggregate_events
 ```
 
-The command performs the following steps:
+The management command can be executed manually or scheduled using cron or other schedulers.
 
-1. Read the last checkpoint.
-2. Fetch only newly inserted events.
-3. Group events by minute or hour.
-4. Calculate:
+## 2. Celery Background Worker
+
+Bulk event ingestion triggers asynchronous aggregation using:
+
+```python
+aggregate_events_task.delay()
+```
+
+Celery publishes the task to Redis, where a worker processes it independently of the API request lifecycle.
+
+Both implementations perform the same workflow:
+
+1. Read the aggregation checkpoint.
+2. Fetch only newly ingested events.
+3. Perform database-side `GROUP BY` aggregation.
+4. Compute:
    - Count
    - First Seen
    - Last Seen
-5. Update EventAggregate using update_or_create().
-6. Store the new checkpoint.
+5. Update the `EventAggregate` table.
+6. Persist the latest checkpoint.
 
-Because checkpoints are maintained, aggregation is incremental and idempotent.
+Because checkpoints are maintained, aggregation remains incremental and idempotent even if the worker or command is executed multiple times.
 
 ---
 
@@ -215,17 +241,21 @@ Instead, it reads directly from the EventAggregate table, allowing efficient que
 
 # Performance Considerations
 
-Several optimizations were included:
+The implementation includes several production-oriented optimizations to improve throughput and reduce database load.
 
-- Composite database indexes
-- Pagination for event listing
-- Stable ordering using timestamp and id
-- bulk_create(ignore_conflicts=True)
-- Incremental aggregation
-- Database-side GROUP BY operations
-- Separation of read and write logic
+Implemented optimizations include:
 
-These optimizations reduce memory usage, improve throughput, and allow the system to scale more effectively.
+- Composite indexes on frequently filtered columns (`tenant_id`, `timestamp`, `source`, and `event_type`)
+- Batch inserts using `bulk_create(batch_size=1000, ignore_conflicts=True)`
+- Lazy QuerySet evaluation through Django ORM
+- Stable ordering using `timestamp` and `id`
+- Pagination to limit response sizes
+- Database-level `GROUP BY` aggregation instead of Python-side processing
+- Incremental aggregation using checkpoints
+- Asynchronous aggregation using Celery workers and Redis
+- Database transactions and uniqueness constraints for concurrency-safe writes
+
+These optimizations minimize database round-trips, reduce memory consumption, and improve scalability under high-volume ingestion workloads.
 
 ---
 
@@ -262,24 +292,34 @@ A production deployment should additionally enable DRF throttling or API gateway
 
 # Scalability
 
-The current implementation is designed to scale through efficient database usage rather than application-level processing.
+The current implementation is designed to scale both vertically and horizontally.
 
-Possible future improvements include:
+Current scalability features include:
 
-- Celery-based asynchronous aggregation
-- Redis caching
-- Kafka-based ingestion
-- Database partitioning
-- Horizontal scaling
+- PostgreSQL indexing
+- Incremental aggregation
+- Asynchronous Celery workers
+- Redis message broker
+- Bulk database operations
+- Precomputed metrics
+- Separation of read and write responsibilities
+
+Potential future enhancements include:
+
+- Celery Beat for scheduled aggregation
+- Kafka-based event streaming
+- PostgreSQL table partitioning
+- Read replicas
+- Distributed Celery workers
 - Prometheus monitoring
 - OpenTelemetry tracing
-
-These improvements can be added without significant architectural changes because responsibilities are already well separated.
+- Kubernetes deployment
 
 ---
-
 # Design Summary
 
-The architecture emphasizes correctness, maintainability, and performance by separating validation, business logic, querying, and background processing into dedicated layers.
+The architecture emphasizes correctness, maintainability, performance, and scalability through a layered design that separates validation, business logic, query logic, and background processing.
 
-Idempotent writes, incremental aggregation, database indexing, and precomputed metrics allow the service to handle high-volume event ingestion while providing efficient query performance. The overall design closely aligns with production backend development practices and satisfies the functional and architectural requirements of the assessment.
+Database constraints and transactions ensure idempotent, concurrency-safe writes, while composite indexes, batch inserts, and database-level aggregation improve query performance and ingestion throughput. Aggregation can be executed either synchronously through a Django management command or asynchronously through Celery workers backed by Redis, providing flexibility for both development and production deployments.
+
+The resulting architecture closely follows production backend engineering practices and satisfies the functional, concurrency, asynchronous processing, and performance requirements of the assessment..
