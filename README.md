@@ -172,7 +172,8 @@ data-ingestion-service/
 
 # System Architecture
 
-```                         Client
+```                        
+                           Client
                             │
         ┌───────────────────┴───────────────────┐
         │                                       │
