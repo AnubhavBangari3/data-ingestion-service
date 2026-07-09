@@ -8,7 +8,20 @@ def get_events(
     from_time=None,
     to_time=None,
 ):
-    queryset = Event.objects.filter(tenant_id=tenant_id)
+    queryset = (
+        Event.objects
+        .filter(tenant_id=tenant_id)
+        .only(
+            "id",
+            "event_id",
+            "tenant_id",
+            "source",
+            "event_type",
+            "timestamp",
+            "payload",
+            "created_at",
+        )
+    )
 
     if source:
         queryset = queryset.filter(source=source.lower())
@@ -33,9 +46,23 @@ def get_metrics(
     from_time=None,
     to_time=None,
 ):
-    queryset = EventAggregate.objects.filter(
-        tenant_id=tenant_id,
-        bucket_size=bucket_size,
+    queryset = (
+        EventAggregate.objects
+        .filter(
+            tenant_id=tenant_id,
+            bucket_size=bucket_size,
+        )
+        .only(
+            "id",
+            "tenant_id",
+            "bucket_start",
+            "bucket_size",
+            "source",
+            "event_type",
+            "count",
+            "first_seen",
+            "last_seen",
+        )
     )
 
     if source:

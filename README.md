@@ -73,15 +73,28 @@ Pytest test suite covering:
 
 # Tech Stack
 
-| Component   | Technology                       |
-| ----------- | -------------------------------- |
-| Language    | Python 3.14                      |
-| Framework   | Django 6 + Django REST Framework |
-| Database    | PostgreSQL                       |
-| ORM         | Django ORM                       |
-| Testing     | Pytest                           |
-| Environment | python-dotenv                    |
-| Driver      | psycopg2-binary                  |
+| Area                     | Tech                                                        |
+| ------------------------ | ----------------------------------------------------------- |
+| Language                 | Python 3.10+                                                |
+| Backend Framework        | Django REST Framework                                       |
+| Database                 | PostgreSQL                                                  |
+| API Style                | REST APIs                                                   |
+| Testing                  | Pytest                                                      |
+| ORM                      | Django ORM                                                  |
+| Background Processing    | Celery + Django Management Command                          |
+| Message Broker           | Redis                                                       |
+| Asynchronous I/O         | Celery Workers                                              |
+| Bulk Insert              | `bulk_create(ignore_conflicts=True)`                        |
+| Idempotency              | Unique DB Constraint (`event_id`)                           |
+| Concurrency Safety       | Database Constraints + Transactions                         |
+| Performance Optimization | Database Indexing + Bulk Insert + Query Optimization        |
+| Pagination               | DRF Pagination                                              |
+| Sorting                  | Stable Ordering (`timestamp`, `id`)                         |
+| Aggregation              | Database `GROUP BY` Aggregation                             |
+| Security                 | Input Validation + UTC Enforcement + Rate Limiting Strategy |
+| Documentation            | README + Architecture Notes                                 |
+| Version Control          | Git                                                         |
+
 
 Project dependencies are defined in `requirements.txt`. 
 
@@ -93,14 +106,24 @@ Project dependencies are defined in `requirements.txt`.
 data-ingestion-service/
 │
 ├── config/
+│   ├── __init__.py
+│   ├── celery.py
+│   ├── asgi.py
 │   ├── settings.py
 │   ├── urls.py
-│   └── asgi.py
+│   └── wsgi.py
 │
 ├── events/
 │   ├── management/
 │   │   └── commands/
+│   │       ├── __init__.py
 │   │       └── aggregate_events.py
+│   │
+│   ├── migrations/
+│   │   ├── __init__.py
+│   │   ├── 0001_initial.py
+│   │   ├── 0002_eventaggregate.py
+│   │   └── 0003_aggregationcheckpoint.py
 │   │
 │   ├── tests/
 │   │   ├── test_ingestion.py
@@ -109,53 +132,80 @@ data-ingestion-service/
 │   │   ├── test_concurrency.py
 │   │   └── test_time_windows.py
 │   │
-│   ├── models.py
-│   ├── serializers.py
-│   ├── selectors.py
-│   ├── services.py
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
 │   ├── filters.py
+│   ├── models.py
 │   ├── pagination.py
-│   ├── views.py
-│   └── urls.py
+│   ├── selectors.py
+│   ├── serializers.py
+│   ├── services.py
+│   ├── tasks.py
+│   ├── urls.py
+│   └── views.py
 │
 ├── health/
-│   ├── views.py
-│   └── urls.py
+│   ├── migrations/
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── models.py
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
 │
 ├── .env
 ├── .env.example
+├── .gitattributes
+├── .gitignore
+├── ARCHITECTURE.md
+├── db.sqlite3
 ├── manage.py
 ├── pytest.ini
+├── README.md
 ├── requirements.txt
-└── README.md
+└── venv/
 ```
 
 ---
 
 # System Architecture
 
-```text
-                Client
-                   │
-        ┌──────────┴──────────┐
-        │                     │
- POST /events          POST /events/bulk
-        │                     │
-        └──────────┬──────────┘
-                   │
-            Validation Layer
-                   │
-            Service Layer
-                   │
-          PostgreSQL (Event)
-                   │
-       aggregate_events Command
-                   │
-        Database Aggregation
-                   │
-      PostgreSQL (EventAggregate)
-                   │
-          GET /api/metrics
+```                         Client
+                            │
+        ┌───────────────────┴───────────────────┐
+        │                                       │
+POST /api/events                    POST /api/events/bulk
+        │                                       │
+        └───────────────────┬───────────────────┘
+                            │
+                     Validation Layer
+                            │
+                     Service Layer
+                            │
+                            ▼
+                 PostgreSQL Event Table
+                            │
+          ┌─────────────────┴─────────────────┐
+          │                                   │
+Manual CLI Command                 Async Celery Task
+aggregate_events            aggregate_events_task.delay()
+          │                                   │
+          │                          Redis Message Broker
+          │                                   │
+          │                           Celery Worker
+          │                                   │
+          └─────────────────┬─────────────────┘
+                            │
+                            ▼
+            Database-level GROUP BY Aggregation
+                            │
+                            ▼
+             PostgreSQL EventAggregate Table
+                            │
+                            ▼
+                   GET /api/metrics
 ```
 
 ---
@@ -217,13 +267,31 @@ CREATE DATABASE event_ingestion_db;
 Configure `.env`
 
 ```env
-DB_NAME=event_ingestion_db
+# Django
+SECRET_KEY=your-secret-key
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# PostgreSQL
+DB_NAME=events_db
 DB_USER=postgres
-DB_PASSWORD=your_password
+DB_PASSWORD=password
 DB_HOST=localhost
 DB_PORT=5432
+
+# Celery + Redis
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+```
+# Redis Setup
+
+Run Redis using Docker:
+
+```bash
+docker run --name ingestion-redis -p 6379:6379 redis
 ```
 
+Verify Redis is running before starting the Celery worker.
 ---
 
 # Installation
@@ -288,25 +356,36 @@ http://127.0.0.1:8000/
 
 ---
 
-# Running Aggregation Worker
+# Running Aggregation
 
-The project implements aggregation using a Django Management Command as required by the assessment.
-
-Run:
+### Option 1 – Manual Aggregation Command
 
 ```bash
 python manage.py aggregate_events
 ```
 
-This command:
+### Option 2 – Celery Worker (Recommended)
 
-* Aggregates raw events
-* Creates minute buckets
-* Creates hour buckets
-* Is incremental
-* Is idempotent
+Start the Celery worker:
 
----
+```bash
+celery -A config worker -l info -P solo
+```
+
+Bulk ingestion automatically triggers:
+
+```python
+aggregate_events_task.delay()
+```
+
+using Redis as the message broker.
+
+The aggregation process is:
+
+- Incremental
+- Idempotent
+- Executed asynchronously
+- Database-driven using SQL `GROUP BY`
 
 # Running Tests
 
@@ -406,14 +485,15 @@ GET /api/metrics/?tenant_id=tenant_1&bucket_size=hour
 
 # Performance Optimizations
 
-* Composite database indexes
-* Database-backed uniqueness constraints
-* `bulk_create(ignore_conflicts=True)` for high-throughput ingestion
-* Pagination for raw event queries
-* Database-level aggregation
-* Incremental aggregation worker
+* Composite database indexes for efficient filtering
+* Batch inserts using `bulk_create(batch_size=1000, ignore_conflicts=True)`
+* Database-backed uniqueness constraint for idempotent ingestion
+* Lazy QuerySet evaluation using Django ORM
 * Stable ordering (`timestamp`, `id`)
-* Query optimization using Django ORM
+* Pagination to limit response size
+* Database-level `GROUP BY` aggregation (no in-memory aggregation)
+* Incremental aggregation using checkpoints
+* Asynchronous aggregation with Celery and Redis
 
 ---
 

@@ -75,7 +75,7 @@ class EventIngestionView(GenericAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-
+from .tasks import aggregate_events_task
 class BulkEventIngestionView(APIView):
     """
     POST /events/bulk
@@ -88,7 +88,7 @@ class BulkEventIngestionView(APIView):
         result = bulk_ingest_events(
             serializer.validated_data["events"]
         )
-
+        aggregate_events_task.delay()
         return Response(
             {
                 "message": "Bulk ingestion completed.",
